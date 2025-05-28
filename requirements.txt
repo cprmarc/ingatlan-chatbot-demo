@@ -1,5 +1,7 @@
 streamlit
 langchain
-faiss-cpu
-openai
 langchain-community
+openai
+faiss-cpu
+requests
+beautifulsoup4
