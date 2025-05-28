@@ -278,57 +278,59 @@ st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # Chat interface
 st.markdown("### Tedd fel a kérdésed")
-question = st.text_input("", 
-                        placeholder="Például: Mi a lakáshitel folyamata? Mire figyelj ingatlannál?",
-                        help="Kérdezz bármit az ingatlanvásárlásról, lakáshitelről vagy kapcsolódó témákról.")
 
-if question:
-    with st.spinner("Válasz készítése..."):
-        response = get_answer(question)
-    
-    st.markdown(f"""
-    <div class="chat-response">
-        <div class="response-text">{response}</div>
-    </div>
-    """, unsafe_allow_html=True)
+# Chat history inicializálása
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-# Features section
-st.markdown("### Miben tudok segíteni?")
-
-col1, col2 = st.columns(2)
+# Input mező és gomb egymás mellett
+col1, col2 = st.columns([4, 1])
 
 with col1:
-    st.markdown("""
-    <div class="feature-card">
-        <div class="feature-icon">🏠</div>
-        <div class="feature-title">Ingatlanvásárlás</div>
-        <div class="feature-desc">Lépésről lépésre végigvezetlek a vásárlás folyamatán</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div class="feature-card">
-        <div class="feature-icon">📋</div>
-        <div class="feature-title">Szerződések</div>
-        <div class="feature-desc">Segítek megérteni a jogi dokumentumokat</div>
-    </div>
-    """, unsafe_allow_html=True)
+    question = st.text_input("", 
+                            placeholder="Például: Mi a lakáshitel folyamata? Mire figyelj ingatlannál?",
+                            help="Kérdezz bármit az ingatlanvásárlásról, lakáshitelről vagy kapcsolódó témákról.",
+                            key="question_input")
 
 with col2:
-    st.markdown("""
-    <div class="feature-card">
-        <div class="feature-icon">💰</div>
-        <div class="feature-title">Lakáshitel</div>
-        <div class="feature-desc">Információk a finanszírozási lehetőségekről</div>
-    </div>
-    """, unsafe_allow_html=True)
+    send_button = st.button("Küldés", type="primary", use_container_width=True)
+
+# Ha gombra kattintanak vagy Enter-t nyomnak
+if send_button or question:
+    if question.strip():  # Csak ha van szöveg
+        with st.spinner("Válasz készítése..."):
+            response = get_answer(question)
+        
+        # Hozzáadás a chat history-hoz
+        st.session_state.chat_history.append({
+            "question": question,
+            "response": response
+        })
+        
+        # Input mező törlése
+        st.session_state.question_input = ""
+        st.rerun()
+
+# Chat history megjelenítése (fordított sorrendben - legújabb felül)
+if st.session_state.chat_history:
+    st.markdown("### Beszélgetés")
     
-    st.markdown("""
-    <div class="feature-card">
-        <div class="feature-icon">🔑</div>
-        <div class="feature-title">Birtokbaadás</div>
-        <div class="feature-desc">Minden a kulcsátadás folyamatáról</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Törlés gomb
+    if st.button("🗑️ Beszélgetés törlése", help="Az összes korábbi kérdés és válasz törlése"):
+        st.session_state.chat_history = []
+        st.rerun()
+    
+    # Chat history megjelenítése
+    for i, chat in enumerate(reversed(st.session_state.chat_history)):
+        st.markdown(f"""
+        <div class="chat-response">
+            <div style="font-weight: 600; color: #1a1a1a; margin-bottom: 1rem;">
+                🙋‍♂️ Kérdés: {chat['question']}
+            </div>
+            <div class="response-text">
+                🤖 Válasz: {chat['response']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
