@@ -1,4 +1,66 @@
-import streamlit as st
+# Szövegtördelő beállítása
+text_splitter = CharacterTextSplitter(separator="\n", chunk_size=300, chunk_overlap=30)
+all_docs = []
+
+# URL lista
+url_list = [
+    "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
+    "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/",
+    "https://tudastar.ingatlan.com/tippek/birtokbaadasi-jegyzokonyv-mire-valo-miert-jo-hogyan-toltsd-ki/",
+    "https://bankmonitor.hu/lakashitel-igenyles",
+]
+
+@st.cache_data
+def scrape_url(url):
+    try:
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        paragraphs = soup.find_all("p")
+        content = "\n".join(p.get_text() for p in paragraphs)
+        return content
+    except Exception as e:
+        return ""
+
+# Adatok betöltése háttérben
+if 'vectorstore' not in st.session_state:
+    with st.spinner("Tudásbázis betöltése..."):
+        for url in url_list:
+            text = scrape_url(url)
+            if text:
+                chunks = text_splitter.split_text(text)
+                all_docs.extend([Document(page_content=chunk) for chunk in chunks])
+        
+        # FAISS index
+        faiss_index_path = "faiss_index"
+        embedding = OpenAIEmbeddings()
+        
+        if os.path.exists(faiss_index_path):
+            try:
+                st.session_state.vectorstore = FAISS.load_local(faiss_index_path, embedding)
+            except:
+                st.session_state.vectorstore = None
+        
+        if st.session_state.vectorstore is None and all_docs:
+            st.session_state.vectorstore = FAISS.from_documents(all_docs, embedding)
+            st.session_state.vectorstore.save_local(faiss_index_path)
+
+def get_answer(query):
+    if len(query.split()) > 15:
+        return "Kérlek, tegyél fel rövidebb kérdést (max 15 szó)."
+    
+    if 'vectorstore' not in st.session_state or st.session_state.vectorstore is None:
+        return "A tudásbázis jelenleg nem elérhető."
+    
+    retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 5})
+    relevant_docs = retriever.get_relevant_documents(query)
+    
+    if not relevant_docs:
+        return "Sajnos ebben a témában nem tudok segíteni. Próbálj meg ingatlanvásárlással, lakáshitellel vagy szerződésekkel kapcsolatos kérdést feltenni."
+    
+    prompt = f"Válaszolj a kérdésre szakszerűen, de érthetően, maximum 4-5 mondatban: {query}"
+    chain = load_qa_chain(ChatOpenAI(temperature=0, max_tokens=200), chain_type="stuff")
+    result = chain.run(input_documents=relevant_docs, question=prompt)
+    return resultimport streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
@@ -28,29 +90,7 @@ st.markdown("""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* Header */
-    .main-header {
-        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-        color: white;
-        padding: 2rem 0;
-        margin: -1rem -1rem 2rem -1rem;
-        text-align: center;
-        box-shadow: 0 2px 20px rgba(0,0,0,0.1);
-    }
-    
-    .main-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin: 0;
-        letter-spacing: -0.02em;
-    }
-    
-    .main-subtitle {
-        font-size: 1.1rem;
-        font-weight: 400;
-        opacity: 0.8;
-        margin-top: 0.5rem;
-    }
+    /* Header - eltávolítva */
     
     /* Container */
     .main-container {
@@ -201,102 +241,23 @@ st.markdown("""
 
 # (st.set_page_config már meghívva fent)
 
-# Header
-st.markdown("""
-<div class="main-header">
-    <div class="main-title">🏡 Ingatlan Asszisztens</div>
-    <div class="main-subtitle">Minden, ami ingatlan. Minden, amire szükséged van.</div>
-</div>
-""", unsafe_allow_html=True)
-
-# Szövegtördelő beállítása
-text_splitter = CharacterTextSplitter(separator="\n", chunk_size=300, chunk_overlap=30)
-all_docs = []
-
-# URL lista
-url_list = [
-    "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
-    "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/",
-    "https://tudastar.ingatlan.com/tippek/birtokbaadasi-jegyzokonyv-mire-valo-miert-jo-hogyan-toltsd-ki/",
-    "https://bankmonitor.hu/lakashitel-igenyles",
-]
-
-@st.cache_data
-def scrape_url(url):
-    try:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
-        paragraphs = soup.find_all("p")
-        content = "\n".join(p.get_text() for p in paragraphs)
-        return content
-    except Exception as e:
-        return ""
-
-# Adatok betöltése háttérben
-if 'vectorstore' not in st.session_state:
-    with st.spinner("Tudásbázis betöltése..."):
-        for url in url_list:
-            text = scrape_url(url)
-            if text:
-                chunks = text_splitter.split_text(text)
-                all_docs.extend([Document(page_content=chunk) for chunk in chunks])
-        
-        # FAISS index
-        faiss_index_path = "faiss_index"
-        embedding = OpenAIEmbeddings()
-        
-        if os.path.exists(faiss_index_path):
-            try:
-                st.session_state.vectorstore = FAISS.load_local(faiss_index_path, embedding)
-            except:
-                st.session_state.vectorstore = None
-        
-        if st.session_state.vectorstore is None and all_docs:
-            st.session_state.vectorstore = FAISS.from_documents(all_docs, embedding)
-            st.session_state.vectorstore.save_local(faiss_index_path)
-
-def get_answer(query):
-    if len(query.split()) > 15:
-        return "Kérlek, tegyél fel rövidebb kérdést (max 15 szó)."
-    
-    if 'vectorstore' not in st.session_state or st.session_state.vectorstore is None:
-        return "A tudásbázis jelenleg nem elérhető."
-    
-    retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 5})
-    relevant_docs = retriever.get_relevant_documents(query)
-    
-    if not relevant_docs:
-        return "Sajnos ebben a témában nem tudok segíteni. Próbálj meg ingatlanvásárlással, lakáshitellel vagy szerződésekkel kapcsolatos kérdést feltenni."
-    
-    prompt = f"Válaszolj a kérdésre szakszerűen, de érthetően, maximum 4-5 mondatban: {query}"
-    chain = load_qa_chain(ChatOpenAI(temperature=0, max_tokens=200), chain_type="stuff")
-    result = chain.run(input_documents=relevant_docs, question=prompt)
-    return result
-
 # Main container
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # Chat interface
-st.markdown("### Tedd fel a kérdésed")
+st.markdown("### Zenga Asszisztens")
 
 # Chat history inicializálása
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-# Input mező és gomb egymás mellett
-col1, col2 = st.columns([4, 1])
+question = st.text_input("", 
+                        placeholder="Például: Mi a lakáshitel folyamata? Mire figyelj ingatlannál?",
+                        help="Kérdezz bármit az ingatlanvásárlásról, lakáshitelről vagy kapcsolódó témákról.",
+                        key="question_input")
 
-with col1:
-    question = st.text_input("", 
-                            placeholder="Például: Mi a lakáshitel folyamata? Mire figyelj ingatlannál?",
-                            help="Kérdezz bármit az ingatlanvásárlásról, lakáshitelről vagy kapcsolódó témákról.",
-                            key="question_input")
-
-with col2:
-    send_button = st.button("Küldés", type="primary", use_container_width=True)
-
-# Ha gombra kattintanak vagy Enter-t nyomnak
-if send_button or question:
+# Ha Enter-t nyomnak
+if question:
     if question.strip():  # Csak ha van szöveg
         with st.spinner("Válasz készítése..."):
             response = get_answer(question)
