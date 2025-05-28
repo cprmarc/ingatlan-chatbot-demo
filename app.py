@@ -2,102 +2,86 @@ import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import CharacterTextSplitter
-from langchain.chat_models import ChatOpenAI
 from langchain.docstore.document import Document
 from langchain.chains.question_answering import load_qa_chain
+from langchain.chat_models import ChatOpenAI
 
 import os
-import pickle
 import requests
 from bs4 import BeautifulSoup
+import pickle
 
-# ------------------- Beállítások -------------------
+# Szövegtördelő beállítása
+text_splitter = CharacterTextSplitter(separator="\n", chunk_size=300, chunk_overlap=30)
 
+all_docs = []
+
+# 📚 Helyi fájlok betöltése (jelenleg kikommentelve, mert nincs fájl)
+# document_dir = "tudasanyagok"  # ide dobhatod a .txt fájlokat
+# import glob
+# for filepath in glob.glob(os.path.join(document_dir, "*.txt")):
+#     with open(filepath, "r", encoding="utf-8") as file:
+#         content = file.read()
+#         chunks = text_splitter.split_text(content)
+#         all_docs.extend([Document(page_content=chunk) for chunk in chunks])
+
+# 🌍 Online anyagok URL-jei - ide másold be a cikkek URL-jeit
 url_list = [
     "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
     "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/",
     "https://tudastar.ingatlan.com/tippek/birtokbaadasi-jegyzokonyv-mire-valo-miert-jo-hogyan-toltsd-ki/",
-    "https://bankmonitor.hu/lakashitel-igenyles/?gad_source=1&gad_campaignid=17136057347&gbraid=0AAAAACS7qzwhEL7nbt8ITPrnD-3gPjb4M&gclid=CjwKCAjw6NrBBhB6EiwAvnT_roXLVPgwNCTGYdGzCi2yuT7b7BcYuYGFvwI9SnR_IEq4ilAxURKBGhoCOP4QAvD_BwE"
+   "https://bankmonitor.hu/lakashitel-igenyles/...",
 ]
-
-cache_articles_path = "cache_articles.pkl"
-cache_vectorstore_path = "faiss_vectorstore.pkl"
-
-text_splitter = CharacterTextSplitter(separator="\n", chunk_size=300, chunk_overlap=30)
-
-# ------------------- Cikkek betöltése és cache-elése -------------------
 
 def scrape_url(url):
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
+        response = requests.get(url)
         soup = BeautifulSoup(response.text, "html.parser")
         paragraphs = soup.find_all("p")
         content = "\n".join(p.get_text() for p in paragraphs)
         return content
-    except Exception as e:
-        print(f"Hiba a {url} lekérésekor: {e}")
+    except Exception:
         return ""
 
-if os.path.exists(cache_articles_path):
-    with open(cache_articles_path, "rb") as f:
-        all_texts = pickle.load(f)
-else:
-    all_texts = []
-    for url in url_list:
-        text = scrape_url(url)
-        if text:
-            all_texts.append(text)
-    with open(cache_articles_path, "wb") as f:
-        pickle.dump(all_texts, f)
+# Online cikkek feldolgozása, szöveg feldarabolása
+for url in url_list:
+    text = scrape_url(url)
+    if text:
+        chunks = text_splitter.split_text(text)
+        all_docs.extend([Document(page_content=chunk) for chunk in chunks])
 
-# ------------------- Dokumentumok feldarabolása -------------------
+# 📁 Cache fájl elérési útja
+cache_path = "faiss_vectorstore.pkl"
 
-all_docs = []
-for text in all_texts:
-    chunks = text_splitter.split_text(text)
-    all_docs.extend([Document(page_content=chunk) for chunk in chunks])
-
-# ------------------- Embedding és FAISS index -------------------
-
+# Embedding példány
 embedding = OpenAIEmbeddings()
 
-if os.path.exists(cache_vectorstore_path):
-    with open(cache_vectorstore_path, "rb") as f:
-        vectorstore = pickle.load(f)
-else:
-    vectorstore = FAISS.from_documents(all_docs, embedding)
-    with open(cache_vectorstore_path, "wb") as f:
-        pickle.dump(vectorstore, f)
+# Vektor adatbázis betöltése vagy létrehozása
+vectorstore = None
+if os.path.exists(cache_path):
+    try:
+        with open(cache_path, "rb") as f:
+            vectorstore = pickle.load(f)
+    except Exception:
+        st.warning("Cache betöltése sikertelen, újragenerálom az indexet.")
+        vectorstore = None
 
-# ------------------- Kérdés-válasz függvény -------------------
+if vectorstore is None:
+    if not all_docs:
+        st.error("Nincs betöltött dokumentum az index létrehozásához! Kérlek adj hozzá adatokat.")
+    else:
+        vectorstore = FAISS.from_documents(all_docs, embedding)
+        with open(cache_path, "wb") as f:
+            pickle.dump(vectorstore, f)
 
 def get_answer(query):
     if len(query.split()) > 10:
         return "Kérlek, max 10 szóból álló kérdést tegyél fel."
 
+    if vectorstore is None:
+        return "A tudásbázis jelenleg nem elérhető."
+
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
     relevant_docs = retriever.get_relevant_documents(query)
     if not relevant_docs:
-        return "Sajnos ebben nem tudok segíteni."
-
-    prompt = (
-        "Válaszolj a kérdésre legfeljebb három mondatban, egyszerűen és tömören.\n\n"
-        f"Kérdés: {query}\n"
-        "Válasz:"
-    )
-
-    chain = load_qa_chain(ChatOpenAI(temperature=0, max_tokens=150), chain_type="stuff")
-    result = chain.run(input_documents=relevant_docs, question=prompt)
-    return result
-
-# ------------------- Streamlit UI -------------------
-
-st.title("🏡 Ingatlan Chatbot Demo (limitált)")
-
-question = st.text_input("✍️ Tedd fel a kérdésed (max 10 szó):")
-
-if question:
-    response = get_answer(question)
-    st.write("\n\n**Válasz:**")
-    st.write(response)
+        return
