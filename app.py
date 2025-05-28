@@ -30,7 +30,7 @@ for filepath in glob.glob(os.path.join(document_dir, "*.txt")):
 # 🌍 Online anyagok URL-jei (szerkeszthető lista)
 url_list = [
     # Írd ide a hasznos ingatlanos cikkek URL-jeit, pl:
-    # "https://www.penzcentrum.hu/otthon/ingatlanvasarlas-tanacsok-2025-01-01",
+    "https://www.penzcentrum.hu/otthon/ingatlanvasarlas-tanacsok-2025-01-01",
 ]
 
 # Weboldal szöveg lekérése és tisztítása
