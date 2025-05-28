@@ -12,9 +12,6 @@ import glob
 import requests
 from bs4 import BeautifulSoup
 
-# 🔑 API kulcs (OpenAI API key)
-import os
-
 # 📚 Tudásanyag betöltése helyi fájlokból
 document_dir = "tudasanyagok"  # ide dobhatod a .txt fájlokat
 all_docs = []
@@ -52,7 +49,7 @@ for url in url_list:
         all_docs.extend([Document(page_content=chunk) for chunk in chunks])
 
 # ⚖️ Vektorizálás (embedding) és indexelés
-embedding = OpenAIEmbeddings()
+embedding = OpenAIEmbeddings()  # automatikusan az env változóból veszi az API kulcsot
 vectorstore = FAISS.from_documents(all_docs, embedding)
 
 # ✉️ Kérdés-válaszoló rendszer
