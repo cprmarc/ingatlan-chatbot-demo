@@ -2,5 +2,3 @@ streamlit
 langchain
 openai
 faiss-cpu
-requests
-beautifulsoup4	
