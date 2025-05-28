@@ -1,61 +1,82 @@
+import subprocess
+import sys
+
+# Automatikus modultelepítés, ha hiányzik
+def ensure_package_installed(package_name, import_name=None):
+    try:
+        __import__(import_name or package_name)
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+        print(f"{package_name} telepítve.")
+
+# Szükséges csomagok ellenőrzése és telepítése
+ensure_package_installed("langchain-openai", "langchain_openai")
+ensure_package_installed("openai")
+ensure_package_installed("langchain")
+ensure_package_installed("langchain-community")
+ensure_package_installed("faiss-cpu")
+ensure_package_installed("streamlit")
+ensure_package_installed("requests")
+ensure_package_installed("beautifulsoup4")
+ensure_package_installed("tiktoken")
+
+# Importálások
 import os
 import streamlit as st
-from langchain_community.document_loaders import TextLoader, WebBaseLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_community.document_loaders import WebBaseLoader
+from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.chains import RetrievalQA
-from bs4 import BeautifulSoup
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# 📁 Beállítások
-DATA_DIR = "data"
-INDEX_FILE = "faiss_index"
+# Streamlit beállítások
+st.set_page_config(page_title="Ingatlan Chatbot", page_icon="🏠")
+st.title("🏠 Ingatlan Chatbot – Webes Tudásbázissal")
 
-# 🧠 OpenAI API-kulcs
-openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    st.error("Kérlek, állíts be egy OpenAI API-kulcsot a .streamlit/secrets.toml fájlban vagy a környezeti változók között.")
-    st.stop()
+st.markdown("""
+Ez a chatbot képes válaszolni az általad megadott ingatlanos témájú weboldalak tartalma alapján.  
+Add meg a weboldal(ak) URL-jét, és kérdezz bármit!
+""")
 
-# 🧾 URL-ek, amiket be akarunk tölteni
-URLS = [
-    "https://ingatlan.com/tanacsok/lakasvasarlas",
-    "https://ingatlan.com/tanacsok/energetikai-tanusitvany"
-]
+# URL-ek bekérése
+url_list = st.text_area("🔗 Írd be az URL(eke)t, soronként egyet (pl. https://...):")
 
-# 🧹 HTML szöveg kiszedése
-def get_clean_text_from_html(content):
-    soup = BeautifulSoup(content, "html.parser")
-    for script in soup(["script", "style"]):
-        script.extract()
-    return soup.get_text(separator=" ", strip=True)
+# Kérdés bekérése
+user_question = st.text_input("❓ Kérdésed a megadott oldalakkal kapcsolatban:")
 
-# 🧠 Tudásbázis betöltése
-def load_data():
-    documents = []
+# Futtatás gombra
+if st.button("💬 Válasz kérése") and url_list and user_question:
+    with st.spinner("🔄 Betöltés és feldolgozás..."):
+        try:
+            # Weboldalak betöltése
+            urls = url_list.strip().split("\n")
+            loader = WebBaseLoader(urls)
+            documents = loader.load()
 
-    # 1️⃣ TXT fájlok
-    if os.path.exists(DATA_DIR):
-        for filename in os.listdir(DATA_DIR):
-            if filename.endswith(".txt"):
-                loader = TextLoader(os.path.join(DATA_DIR, filename), encoding='utf-8')
-                documents.extend(loader.load())
+            # Dokumentumdarabolás
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            docs = splitter.split_documents(documents)
 
-    # 2️⃣ Webes források
-    for url in URLS:
-        loader = WebBaseLoader(url)
-        raw_docs = loader.load()
-        for doc in raw_docs:
-            doc.page_content = get_clean_text_from_html(doc.page_content)
-        documents.extend(raw_docs)
+            # Embedding + FAISS index
+            embeddings = OpenAIEmbeddings()
+            vectorstore = FAISS.from_documents(docs, embeddings)
 
-    return documents
+            # Kérdés-válasz lánc
+            retriever = vectorstore.as_retriever()
+            qa_chain = RetrievalQA.from_chain_type(
+                llm=ChatOpenAI(temperature=0),
+                retriever=retriever,
+                return_source_documents=True
+            )
 
-# 🔄 Szöveg feldarabolása
-def split_documents(documents):
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    return splitter.split_documents(documents)
+            result = qa_chain(user_question)
 
-# 📦 Embedding és index készítése
-def create_or_load_index(documents):
-    i
+            st.subheader("💡 Válasz:")
+            st.write(result['result'])
+
+            st.subheader("📚 Forrás(ok):")
+            for doc in result["source_documents"]:
+                st.markdown(f"- [{doc.metadata['source']}]({doc.metadata['source']})")
+        
+        except Exception as e:
+            st.error(f"Hiba történt: {str(e)}")
