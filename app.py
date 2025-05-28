@@ -1,88 +1,61 @@
-import streamlit as st
-from langchain_community.document_loaders import WebBaseLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain_core.runnables import RunnablePassthrough
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
 import os
-import requests
+import streamlit as st
+from langchain_community.document_loaders import TextLoader, WebBaseLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain.chains import RetrievalQA
 from bs4 import BeautifulSoup
 
-# Beállítás
-st.set_page_config(page_title="Ingatlanos Chatbot", page_icon="🏡")
-st.title("🏡 Ingatlanos Web Chatbot")
+# 📁 Beállítások
+DATA_DIR = "data"
+INDEX_FILE = "faiss_index"
 
-# OpenAI API-kulcs
-openai_api_key = st.sidebar.text_input("OpenAI API kulcs", type="password")
+# 🧠 OpenAI API-kulcs
+openai_api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    st.error("Kérlek, állíts be egy OpenAI API-kulcsot a .streamlit/secrets.toml fájlban vagy a környezeti változók között.")
+    st.stop()
 
-# Weboldalak listája
-url_list = st.sidebar.text_area("Adj meg URL-eket (1 sor = 1 weboldal):", 
- [
-    "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
-    "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/",
-    "https://tudastar.ingatlan.com/tippek/birtokbaadasi-jegyzokonyv-mire-valo-miert-jo-hogyan-toltsd-ki/",
-    "https://bankmonitor.hu/lakashitel-igenyles",
-]).splitlines()
+# 🧾 URL-ek, amiket be akarunk tölteni
+URLS = [
+    "https://ingatlan.com/tanacsok/lakasvasarlas",
+    "https://ingatlan.com/tanacsok/energetikai-tanusitvany"
+]
 
-# Gomb a chatbot betöltéséhez
-if st.sidebar.button("🔄 Chatbot frissítése webes forrásokból"):
+# 🧹 HTML szöveg kiszedése
+def get_clean_text_from_html(content):
+    soup = BeautifulSoup(content, "html.parser")
+    for script in soup(["script", "style"]):
+        script.extract()
+    return soup.get_text(separator=" ", strip=True)
 
-    if not openai_api_key:
-        st.error("Kérlek, add meg az OpenAI API kulcsot!")
-        st.stop()
+# 🧠 Tudásbázis betöltése
+def load_data():
+    documents = []
 
-    # URL-ekből szöveg lekérése
-    def scrape_url(url):
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.text, "html.parser")
-            return soup.get_text()
-        except Exception as e:
-            st.warning(f"Hiba a(z) {url} betöltésekor: {e}")
-            return ""
+    # 1️⃣ TXT fájlok
+    if os.path.exists(DATA_DIR):
+        for filename in os.listdir(DATA_DIR):
+            if filename.endswith(".txt"):
+                loader = TextLoader(os.path.join(DATA_DIR, filename), encoding='utf-8')
+                documents.extend(loader.load())
 
-    # Szöveg chunkolása
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    all_docs = []
+    # 2️⃣ Webes források
+    for url in URLS:
+        loader = WebBaseLoader(url)
+        raw_docs = loader.load()
+        for doc in raw_docs:
+            doc.page_content = get_clean_text_from_html(doc.page_content)
+        documents.extend(raw_docs)
 
-    for url in url_list:
-        text = scrape_url(url)
-        if text:
-            chunks = text_splitter.split_text(text)
-            all_docs.extend([Document(page_content=chunk, metadata={"source": url}) for chunk in chunks])
+    return documents
 
-    if not all_docs:
-        st.error("Nem sikerült szöveget betölteni egyik URL-ről sem.")
-        st.stop()
+# 🔄 Szöveg feldarabolása
+def split_documents(documents):
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    return splitter.split_documents(documents)
 
-    # Embedding + FAISS index
-    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
-    db = FAISS.from_documents(all_docs, embeddings)
-    retriever = db.as_retriever()
-
-    # Prompt sablon (kiegészíthető!)
-    prompt_template = PromptTemplate.from_template("""
-Válaszolj az alábbi kérdésre a dokumentumok alapján. 
-Ha nem tudod a választ a webes szövegekből, akkor írd, hogy nem tudod.
-Kérdés: {question}
-""")
-
-    # QA lánc definiálása
-    llm = ChatOpenAI(openai_api_key=openai_api_key, temperature=0)
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True,
-        chain_type_kwargs={"prompt": prompt_template}
-    )
-
-    st.session_state.qa_chain = qa_chain
-    st.success("✅ Chatbot betöltve a megadott weboldalakról!")
-
-# Chatbox
-if "qa_chain" in st.session_state:
-    que
+# 📦 Embedding és index készítése
+def create_or_load_index(documents):
+    i
