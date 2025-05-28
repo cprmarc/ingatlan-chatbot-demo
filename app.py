@@ -13,7 +13,7 @@ import requests
 from bs4 import BeautifulSoup
 
 # 🔑 API kulcs (OpenAI API key)
-os.environ["OPENAI_API_KEY"] = "az_openai_kulcsod_ide"
+import os
 
 # 📚 Tudásanyag betöltése helyi fájlokból
 document_dir = "tudasanyagok"  # ide dobhatod a .txt fájlokat
