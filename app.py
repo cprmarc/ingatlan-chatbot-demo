@@ -9,6 +9,14 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
+# Streamlit konfiguráció - MINDIG ELSŐ!
+st.set_page_config(
+    page_title="🏡 Ingatlan Asszisztens",
+    page_icon="🏡",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
 # 🎨 Zenga.hu stílusú CSS
 st.markdown("""
 <style>
@@ -191,13 +199,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Streamlit konfiguráció
-st.set_page_config(
-    page_title="🏡 Ingatlan Asszisztens",
-    page_icon="🏡",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+# (st.set_page_config már meghívva fent)
 
 # Header
 st.markdown("""
