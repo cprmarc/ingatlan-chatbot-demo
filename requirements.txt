@@ -5,3 +5,4 @@ faiss-cpu
 streamlit
 requests
 beautifulsoup4
+tiktoken
