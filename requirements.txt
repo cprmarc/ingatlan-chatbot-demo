@@ -1,7 +1,7 @@
-streamlit
-langchain
-langchain-community
-openai
+openai>=0.27.0
+langchain>=0.0.238
+langchain-community>=0.3.24
 faiss-cpu
+streamlit
 requests
 beautifulsoup4
