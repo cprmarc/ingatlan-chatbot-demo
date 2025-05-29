@@ -9,7 +9,7 @@ def ensure_package_installed(package_name, import_name=None):
         subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
         print(f"{package_name} telepítve.")
 
-# Csomagok biztosítása
+# Szükséges csomagok
 ensure_package_installed("langchain-openai", "langchain_openai")
 ensure_package_installed("openai")
 ensure_package_installed("langchain")
@@ -22,57 +22,76 @@ ensure_package_installed("tiktoken")
 
 # Importálás
 import streamlit as st
-from langchain_community.document_loaders import WebBaseLoader
+import requests
+from bs4 import BeautifulSoup
+from langchain.schema import Document
 from langchain.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# 🔗 Beégetett weboldalak
+# 🔗 Előre beégetett weboldalak
 PREDEFINED_URLS = [
-    "https://www.zenga.hu/hasznos-tartalmak/vagyonszerzesi-illetek-az-ingatlanvasarlasnal-mit-kell-tudni-clvqymklilydc07ur6i9h42ln", 
+    "https://www.zenga.hu/hasznos-tartalmak/vagyonszerzesi-illetek-az-ingatlanvasarlasnal-mit-kell-tudni-clvqymklilydc07ur6i9h42ln",
     "https://www.zenga.hu/hasznos-tartalmak/fontos-tudnivalok-az-ingatlanvasarlas-folyamatarol-clu1c0w5h79ek07uvs2m2uuqh",
-    "https://www.zenga.hu/hasznos-tartalmak/ingatlanhitel-kalkulator-a-vasarlok-utmutatoja-a-hitelezes-vilagaban-clvqy5eaqlkyl06uyxws0mxf4", 
-    "https://www.zenga.hu/hasznos-tartalmak/jelzaloghitelek-megertese-atfogo-utmutato-clvqyqx70m3kv06uyl0nnkrdk", 
+    "https://www.zenga.hu/hasznos-tartalmak/ingatlanhitel-kalkulator-a-vasarlok-utmutatoja-a-hitelezes-vilagaban-clvqy5eaqlkyl06uyxws0mxf4",
+    "https://www.zenga.hu/hasznos-tartalmak/jelzaloghitelek-megertese-atfogo-utmutato-clvqyqx70m3kv06uyl0nnkrdk",
     "https://www.zenga.hu/hasznos-tartalmak/az-ingatlan-ertekbecsles-alapjai-utmutato-kezdoknek-clu1duuuv9h150hvyqdndb3wk"
-    
 ]
 
-# Streamlit beállítás
+# 🌐 Egyéni weboldal betöltő
+def load_custom_webpages(urls):
+    documents = []
+    for url in urls:
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                # Weboldal szövegének kinyerése
+                article_text = soup.get_text(separator="\n", strip=True)
+                if len(article_text.strip()) > 100:
+                    documents.append(Document(page_content=article_text, metadata={"source": url}))
+            else:
+                print(f"Hiba az URL betöltésekor: {url}")
+        except Exception as e:
+            print(f"Hiba történt a(z) {url} feldolgozásakor: {e}")
+    return documents
+
+# 🖼️ Streamlit UI beállítás
 st.set_page_config(page_title="Ingatlan Chatbot", page_icon="🏠")
 st.title("🏠 Ingatlan vásárlási aszisztens")
-st.markdown("Gontdalan, páratlan, ingatlan.")
+st.markdown("Gondtalan, páratlan, ingatlan.")
 
-# Chat-előzmény
+# 💬 Chat-előzmény tárolás
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Kérdés bekérése
+# 📥 Kérdés bekérése
 user_question = st.chat_input("Írd be a kérdésed és nyomj Entert...")
 
-# Ha van kérdés:
+# 🔍 Kérdés feldolgozása
 if user_question:
     with st.spinner("Gondolkodom a válaszon..."):
         try:
-            # Első körben töltsük be és indexeljük a forrásokat
             if "vectorstore" not in st.session_state:
-                loader = WebBaseLoader(PREDEFINED_URLS)
-                documents = loader.load()
+                documents = load_custom_webpages(PREDEFINED_URLS)
+                st.write(f"{len(documents)} dokumentum töltve be.")  # Debug: dokumentum számláló
+
+                if not documents:
+                    raise ValueError("Nem sikerült betölteni a dokumentumokat.")
+
                 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
                 docs = splitter.split_documents(documents)
                 embeddings = OpenAIEmbeddings()
                 vectorstore = FAISS.from_documents(docs, embeddings)
                 st.session_state.vectorstore = vectorstore
 
-            # 🔍 Keresés a tudásbázisban
             retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": 3})
             relevant_docs = retriever.get_relevant_documents(user_question)
 
-            # 🔒 Ha nincs elég releváns dokumentum, ne válaszoljon
             if not relevant_docs:
                 answer = "Ebben a témában sajnos nem tudok biztos válasszal szolgálni a rendelkezésre álló információk alapján."
             else:
-                # Lánc létrehozása és válaszgenerálás
                 qa_chain = RetrievalQA.from_chain_type(
                     llm=ChatOpenAI(temperature=0),
                     retriever=retriever,
@@ -81,7 +100,6 @@ if user_question:
                 result = qa_chain(user_question)
                 answer = result["result"]
 
-            # Elmentjük a párbeszédet
             st.session_state.chat_history.append(("🧑", user_question))
             st.session_state.chat_history.append(("🤖", answer))
 
@@ -89,7 +107,7 @@ if user_question:
             error_msg = f"Hiba történt: {str(e)}"
             st.session_state.chat_history.append(("🤖", error_msg))
 
-# Párbeszéd megjelenítése
+# 💬 Párbeszéd megjelenítése
 for speaker, text in st.session_state.chat_history:
     with st.chat_message(name=speaker):
         st.markdown(text)
