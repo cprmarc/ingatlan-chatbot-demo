@@ -85,7 +85,7 @@ user_question = st.chat_input("Írd be a kérdésed és nyomj Entert...")
 
 # 🔍 Kérdés feldolgozása
 if user_question:
-    with st.spinner("Épp gondolkodom... mint egy ingatlanos, akinek szép a kilátása 🧠🌇"):
+    with st.spinner("Kiszimatolom a lényeget, te csak dőlj hátra! 🧠🌇"):
         try:
             if "vectorstore" not in st.session_state:
                 documents = load_custom_webpages(PREDEFINED_URLS)
