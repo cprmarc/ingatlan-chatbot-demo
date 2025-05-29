@@ -73,7 +73,7 @@ def personalize_response(text, user_input):
 
 # 🖼️ Streamlit UI beállítás
 st.set_page_config(page_title="Ingatlan Chatbot", page_icon="🐶")
-st.title("🏠 Ingatlan vásárlási aszisztens")
+st.title("🏠 Zenga az ingatlanos aszisztensed")
 st.markdown("Gondtalan, páratlan, ingatlan – kérdezz bátran!")
 
 # 💬 Chat-előzmény
