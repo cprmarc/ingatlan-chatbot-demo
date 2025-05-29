@@ -30,8 +30,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # 🔗 Beégetett weboldalak
 PREDEFINED_URLS = [
-    "https://bankmonitor.hu/lakashitel-igenyles/",
-    "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
+    "https://www.otpbank.hu/portal/hu/lakashitel",
+    "https://www.otpbank.hu/portal/hu/lakashitel/hasznalt-lakas",
     "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/" , 
     "https://www.zenga.hu/hello-otthon?headerid=clfuvspprbu3a0aw6xd8cir2p",
     "https://www.zenga.hu/hello-otthon?headerid=clfuvt6b9c1070bw8kismatfo",
