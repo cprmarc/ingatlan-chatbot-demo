@@ -32,7 +32,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 PREDEFINED_URLS = [
     "https://bankmonitor.hu/lakashitel-igenyles/",
     "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
-    "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/"
+    "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/" , 
+   " https://www.zenga.hu/hello-otthon"
 ]
 
 # Streamlit beállítás
