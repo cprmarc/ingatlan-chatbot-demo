@@ -30,12 +30,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # 🔗 Beégetett weboldalak
 PREDEFINED_URLS = [
+        "https://www.zenga.hu/hasznos-tartalmak",
     "https://www.otpbank.hu/portal/hu/lakashitel",
+    "https://www.zenga.hu/otpotthon",
     "https://www.otpbank.hu/portal/hu/lakashitel/hasznalt-lakas",
-    "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/" , 
+    "https://tudastar.ingatlan.com" , 
     "https://www.zenga.hu/hello-otthon?headerid=clfuvspprbu3a0aw6xd8cir2p",
-    "https://www.zenga.hu/hello-otthon?headerid=clfuvt6b9c1070bw8kismatfo",
-    "https://www.zenga.hu/hasznos-tartalmak"
+    "https://www.zenga.hu/hello-otthon?headerid=clfuvt6b9c1070bw8kismatfo"
+    
 ]
 
 # Streamlit beállítás
