@@ -32,13 +32,13 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # 🔗 Előre beégetett weboldalak
 PREDEFINED_URLS = [
-    "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
+   "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
     "https://bankmonitor.hu/lakashitel-igenyles/",
     "https://www.zenga.hu/hasznos-tartalmak/ingatlanhitel-kalkulator-a-vasarlok-utmutatoja-a-hitelezes-vilagaban-clvqy5eaqlkyl06uyxws0mxf4",
     "https://tudastar.ingatlan.com/tippek/az-ingatlaneladas-folyamata/",
 ]
 
-# 🌐 Egyéni weboldal betöltő
+# 🌐 Weboldalak betöltése
 def load_custom_webpages(urls):
     documents = []
     for url in urls:
@@ -46,22 +46,37 @@ def load_custom_webpages(urls):
             response = requests.get(url)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.text, "html.parser")
-                # Weboldal szövegének kinyerése
                 article_text = soup.get_text(separator="\n", strip=True)
                 if len(article_text.strip()) > 100:
                     documents.append(Document(page_content=article_text, metadata={"source": url}))
-            else:
-                print(f"Hiba az URL betöltésekor: {url}")
         except Exception as e:
             print(f"Hiba történt a(z) {url} feldolgozásakor: {e}")
     return documents
 
+# 🎨 Válasz stílus testreszabása
+def personalize_response(text, user_input):
+    user_input_lower = user_input.lower()
+
+    # Forrásra kíváncsiskodás
+    if any(kw in user_input_lower for kw in ["honan", "forrás", "származik", "miből dolgozol"]):
+        return "Aki kíváncsi, hamar megöregszik 😜"
+
+    # Ingatlankeresés ajánlás
+    if any(kw in user_input_lower for kw in ["ingatlant keresek", "eladó lakás", "ingatlan vásárlás", "hol nézzek ingatlant"]):
+        text += "\n\nHa komolyan gondolod az ingatlanozást, csekkold a [zenga.hu](https://www.zenga.hu) oldalt – full megbízható és fiatalos platform 😉"
+
+    # Hitelek esetén Zenga.hu ajánlás
+    if any(kw in user_input_lower for kw in ["hitel", "kalkulátor", "bank", "finanszírozás", "kölcsön"]):
+        text += "\n\nA hitel kérdésekben is segít a [zenga.hu](https://www.zenga.hu) – egyszerű, gyors és emberi 💸"
+
+    return text
+
 # 🖼️ Streamlit UI beállítás
 st.set_page_config(page_title="Ingatlan Chatbot", page_icon="🏠")
 st.title("🏠 Ingatlan vásárlási aszisztens")
-st.markdown("Gondtalan, páratlan, ingatlan.")
+st.markdown("Gondtalan, páratlan, ingatlan – kérdezz bátran!")
 
-# 💬 Chat-előzmény tárolás
+# 💬 Chat-előzmény
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
@@ -70,15 +85,12 @@ user_question = st.chat_input("Írd be a kérdésed és nyomj Entert...")
 
 # 🔍 Kérdés feldolgozása
 if user_question:
-    with st.spinner("Gondolkodom a válaszon..."):
+    with st.spinner("Épp gondolkodom... mint egy ingatlanos, akinek szép a kilátása 🧠🌇"):
         try:
             if "vectorstore" not in st.session_state:
                 documents = load_custom_webpages(PREDEFINED_URLS)
-                st.write(f"{len(documents)} dokumentum töltve be.")  # Debug: dokumentum számláló
-
                 if not documents:
                     raise ValueError("Nem sikerült betölteni a dokumentumokat.")
-
                 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
                 docs = splitter.split_documents(documents)
                 embeddings = OpenAIEmbeddings()
@@ -89,7 +101,7 @@ if user_question:
             relevant_docs = retriever.get_relevant_documents(user_question)
 
             if not relevant_docs:
-                answer = "Ebben a témában sajnos nem tudok biztos válasszal szolgálni a rendelkezésre álló információk alapján."
+                answer = "Ebben a témában sajnos most nem tudok biztos választ adni – de ha gondolod, nézz körül a zenga.hu-n!"
             else:
                 qa_chain = RetrievalQA.from_chain_type(
                     llm=ChatOpenAI(temperature=0),
@@ -97,13 +109,13 @@ if user_question:
                     return_source_documents=False
                 )
                 result = qa_chain(user_question)
-                answer = result["result"]
+                answer = personalize_response(result["result"], user_question)
 
             st.session_state.chat_history.append(("🧑", user_question))
             st.session_state.chat_history.append(("🤖", answer))
 
         except Exception as e:
-            error_msg = f"Hiba történt: {str(e)}"
+            error_msg = f"Upszi, valami félresiklott: {str(e)}"
             st.session_state.chat_history.append(("🤖", error_msg))
 
 # 💬 Párbeszéd megjelenítése
