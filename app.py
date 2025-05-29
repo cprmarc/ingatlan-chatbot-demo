@@ -37,8 +37,8 @@ PREDEFINED_URLS = [
 
 # Streamlit beállítás
 st.set_page_config(page_title="Ingatlan Chatbot", page_icon="🏠")
-st.title("🏠 Ingatlan Chatbot – Tudásbázis Weboldalakról")
-st.markdown("Írj be kérdést az alábbi mezőbe, a válaszokat kizárólag a háttérben megadott weboldalak alapján kapod.")
+st.title("🏠 Ingatlan vásárlási aszisztens")
+st.markdown("Gontdalan, páratlan, ingatlan.")
 
 # Chat-előzmény
 if "chat_history" not in st.session_state:
