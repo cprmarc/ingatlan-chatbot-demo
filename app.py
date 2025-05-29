@@ -28,51 +28,58 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-# 🔗 Beégetett weboldalak (ide írd be az URL-eket, amikből dolgozzon)
+# 🔗 Beégetett weboldalak (háttérben)
 PREDEFINED_URLS = [
     "https://www.ingatlan.com/blog/lakasvasarlas-tippek",
     "https://www.ingatlan.com/blog/energetikai-tanusitvany",
     "https://www.ingatlan.com/blog/hitelkalkulator-mukodese"
-    # ➕ Ide jöhetnek további oldalak
 ]
 
-# Streamlit UI
+# Streamlit oldalbeállítás
 st.set_page_config(page_title="Ingatlan Chatbot", page_icon="🏠")
 st.title("🏠 Ingatlan Chatbot – Tudásbázis Weboldalakról")
+st.markdown("Írj be kérdést az alábbi mezőbe, a válaszokat a háttérben betöltött weboldalak alapján kapod.")
 
-st.markdown("Kérdezz bátran! A válaszokat a háttérben beállított szakmai weboldalak alapján kapod meg.")
+# 🔁 Inicializáljuk a memóriát a beszélgetéshez
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# Kérdés bekérése
-user_question = st.text_input("❓ Írd be a kérdésed az ingatlanokkal kapcsolatban:")
+# 💬 Felhasználói kérdés bekérése (ENTER küldi el)
+user_question = st.chat_input("Írd be a kérdésed és nyomj Entert...")
 
-# Válaszgenerálás
-if st.button("💬 Válasz kérése") and user_question:
-    with st.spinner("🔄 Tudásbázis betöltése és válasz készítése..."):
+# 💡 Betöltés és válaszgenerálás, ha érkezett kérdés
+if user_question:
+    with st.spinner("Gondolkodom a válaszon..."):
         try:
-            loader = WebBaseLoader(PREDEFINED_URLS)
-            documents = loader.load()
+            # Tudásbázis betöltés (csak első kérdésnél)
+            if "vectorstore" not in st.session_state:
+                loader = WebBaseLoader(PREDEFINED_URLS)
+                documents = loader.load()
+                splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                docs = splitter.split_documents(documents)
+                embeddings = OpenAIEmbeddings()
+                vectorstore = FAISS.from_documents(docs, embeddings)
+                st.session_state.vectorstore = vectorstore
 
-            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            docs = splitter.split_documents(documents)
-
-            embeddings = OpenAIEmbeddings()
-            vectorstore = FAISS.from_documents(docs, embeddings)
-
-            retriever = vectorstore.as_retriever()
+            retriever = st.session_state.vectorstore.as_retriever()
             qa_chain = RetrievalQA.from_chain_type(
                 llm=ChatOpenAI(temperature=0),
                 retriever=retriever,
-                return_source_documents=True
+                return_source_documents=False  # 🔕 Nem kérünk forrásokat
             )
 
             result = qa_chain(user_question)
+            answer = result['result']
 
-            st.subheader("💡 Válasz:")
-            st.write(result['result'])
-
-            st.subheader("📚 Forrás(ok):")
-            for doc in result["source_documents"]:
-                st.markdown(f"- [{doc.metadata['source']}]({doc.metadata['source']})")
+            # 🔁 Elmentjük a párbeszédet
+            st.session_state.chat_history.append(("🧑", user_question))
+            st.session_state.chat_history.append(("🤖", answer))
 
         except Exception as e:
-            st.error(f"Hiba történt: {str(e)}")
+            error_msg = f"Hiba történt: {str(e)}"
+            st.session_state.chat_history.append(("🤖", error_msg))
+
+# 🗨️ Korábbi kérdés-válaszok megjelenítése
+for speaker, text in st.session_state.chat_history:
+    with st.chat_message(name=speaker):
+        st.markdown(text)
