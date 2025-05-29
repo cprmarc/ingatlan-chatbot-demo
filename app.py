@@ -30,10 +30,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # 🔗 Beégetett weboldalak
 PREDEFINED_URLS = [
-    "https://www.zenga.hu/hasznos-tartalmak",
     "https://www.zenga.hu/hasznos-tartalmak/vagyonszerzesi-illetek-az-ingatlanvasarlasnal-mit-kell-tudni-clvqymklilydc07ur6i9h42ln", 
     "https://www.zenga.hu/hasznos-tartalmak/fontos-tudnivalok-az-ingatlanvasarlas-folyamatarol-clu1c0w5h79ek07uvs2m2uuqh",
-      "https://www.zenga.hu/hasznos-tartalmak/ingatlanhitel-kalkulator-a-vasarlok-utmutatoja-a-hitelezes-vilagaban-clvqy5eaqlkyl06uyxws0mxf4", 
+    "https://www.zenga.hu/hasznos-tartalmak/ingatlanhitel-kalkulator-a-vasarlok-utmutatoja-a-hitelezes-vilagaban-clvqy5eaqlkyl06uyxws0mxf4", 
     "https://www.zenga.hu/hasznos-tartalmak/jelzaloghitelek-megertese-atfogo-utmutato-clvqyqx70m3kv06uyl0nnkrdk", 
     "https://www.zenga.hu/hasznos-tartalmak/az-ingatlan-ertekbecsles-alapjai-utmutato-kezdoknek-clu1duuuv9h150hvyqdndb3wk"
     
