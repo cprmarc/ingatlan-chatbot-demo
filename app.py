@@ -33,8 +33,9 @@ PREDEFINED_URLS = [
     "https://bankmonitor.hu/lakashitel-igenyles/",
     "https://tudastar.ingatlan.com/tippek/az-ingatlanvasarlas-menete/",
     "https://tudastar.ingatlan.com/tippek/tulajdonjog-fenntartashoz-kapcsolodo-vevoi-jog/" , 
-    "https://www.zenga.hu/hello-otthon?headerid=clfuvspprbu3a0aw6xd8cir2p"
-    "https://www.zenga.hu/hello-otthon?headerid=clfuvt6b9c1070bw8kismatfo"
+    "https://www.zenga.hu/hello-otthon?headerid=clfuvspprbu3a0aw6xd8cir2p",
+    "https://www.zenga.hu/hello-otthon?headerid=clfuvt6b9c1070bw8kismatfo",
+    "https://www.zenga.hu/hasznos-tartalmak"
 ]
 
 # Streamlit beállítás
